@@ -1,0 +1,52 @@
+name: Prepare a WebOS Chromium build job
+description: Check out the source at a fixed commit, free disk, build the container image, compute cache keys.
+inputs:
+  source_repo: { required: true, description: "repo with source/" }
+  sha: { required: true, description: "commit of source_repo" }
+  variant: { required: false, default: "default", description: "default or armv8" }
+  swap_gb: { required: false, default: "0", description: "extra swap in GB" }
+  docker: { required: false, default: "true", description: "build the container image" }
+outputs:
+  src_key: { description: "cache key of the source snapshot", value: "${{ steps.keys.outputs.src_key }}" }
+  tools_key: { description: "cache key of sysroot + builtins", value: "${{ steps.keys.outputs.tools_key }}" }
+  nss_key: { description: "cache key of NSS/NSPR", value: "${{ steps.keys.outputs.nss_key }}" }
+runs:
+  using: composite
+  steps:
+    - name: Check out the source (${{ inputs.source_repo }} @ ${{ inputs.sha }})
+      uses: actions/checkout@v4
+      with: { repository: "${{ inputs.source_repo }}", ref: "${{ inputs.sha }}", path: wc }
+    - name: Free disk, folders, swap
+      shell: bash
+      run: bash ci/host-setup.sh ${{ inputs.swap_gb }}
+    - name: Cache keys
+      id: keys
+      shell: bash
+      run: |
+        S=wc/source
+        c151=$(sed -n 's/^C151_COMMIT=\([0-9a-f]*\).*/\1/p' $S/config.env)
+        th=$(cat $S/container/build-sysroot.sh $S/container/build-sysroot-compat.sh $S/container/build-builtins.sh \
+          $S/container/sysroot-pinned.txt $S/container/sysroot-hardfloat-removed.txt $S/container/tvabi.py \
+          $S/container/gen-webos-headers.py $S/container/lib.sh $S/container/tvabi/* ci/Dockerfile | sha256sum | cut -c1-16)
+        nh=$( (cat $S/container/build-nss-sdk.sh $S/container/nss/ship-list.txt $S/container/nss/patches/*; \
+          grep -E '^(NSS_|NSPR_|SDK_)' $S/config.env) | sha256sum | cut -c1-16)
+        echo "src_key=src-$c151-v1" >> $GITHUB_OUTPUT
+        echo "tools_key=tools-$c151-$th" >> $GITHUB_OUTPUT
+        echo "nss_key=nss-$nh" >> $GITHUB_OUTPUT
+        echo "chromium151 $c151, tools $th, nss $nh"
+    - name: Set up Docker Buildx
+      if: inputs.docker == 'true'
+      uses: docker/setup-buildx-action@v3
+    - name: Build container image
+      if: inputs.docker == 'true'
+      uses: docker/build-push-action@v6
+      with:
+        context: ci
+        file: ci/Dockerfile
+        tags: cn-builder:ci
+        load: true
+        cache-from: type=gha,scope=cn-builder
+        cache-to: type=gha,scope=cn-builder,mode=max
+    - name: Source folder for variant ${{ inputs.variant }}
+      shell: bash
+      run: bash ci/prep-cn.sh ${{ inputs.variant }}
