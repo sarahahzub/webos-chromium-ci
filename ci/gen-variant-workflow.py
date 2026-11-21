@@ -9,7 +9,7 @@ makes the IPK and its build provenance attestation. Edit this script, not varian
 import os
 import sys
 
-PARTS = int(sys.argv[1]) if len(sys.argv) > 1 else 14
+PARTS = int(sys.argv[1]) if len(sys.argv) > 1 else 5
 B = "/home/runner/cnci"
 OUTSNAP = "out-tv-official-compat"
 OUTPATHS = f"{B}/vol/snap/{OUTSNAP}.tar.zst\\n{B}/vol/snap/{OUTSNAP}.json\\n{B}/vol/snap/patch-state.json"
