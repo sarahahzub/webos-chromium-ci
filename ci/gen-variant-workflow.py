@@ -134,6 +134,8 @@ package = f"""  package:
             launcher/cnrun
       - uses: actions/upload-artifact@v4
         with: {{ name: "webos-chromium-${{{{ inputs.variant }}}}", path: ipk/, retention-days: 30, compression-level: 0 }}
+      - uses: actions/upload-artifact@v4
+        with: {{ name: "extra-${{{{ inputs.variant }}}}", path: extra/, retention-days: 1, compression-level: 0 }}
 """
 
 out = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".github", "workflows", "variant.yml")

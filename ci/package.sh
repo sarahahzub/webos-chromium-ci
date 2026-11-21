@@ -13,19 +13,11 @@ EXTRA=()
 [ "$V" = armv8 ] && EXTRA=(--app-id io.github.sarahahzub.chromium.armv8 --title "Chromium Browser ARMv8")
 python3 "$S/package/mkipk.py" --browser "$PWD/browser/browser.tar.zst" --version "$VER" --launcher "$PWD/launcher/cnrun" \
 	--requires "glibc=2.24,webos=webOS 4.4" --lib-dir "$PWD/nss/lib" --out "$PWD/ipk" "${EXTRA[@]}"
-# one artifact per variant: the IPK, the browser it was made from, and the reports
-cp browser/browser.tar.zst nss/nss-report.txt browser/abi-report.txt ipk/ 2>/dev/null || true
-(cd ipk && sha256sum *.ipk browser.tar.zst > SHA256SUMS)
+# ipk/ holds only the IPK (artifact webos-chromium-<variant>); everything else goes to extra/, which the Result job
+# puts into the logs artifact
+rm -rf extra; mkdir -p extra
+cp browser/browser.tar.zst nss/nss-report.txt extra/; cp browser/abi-report.txt extra/ 2>/dev/null || true
 f=$(ls ipk/*.ipk)
-{
-	echo "## $V: $(basename "$f")"
-	echo
-	echo "| | |"
-	echo "|---|---|"
-	echo "| Source | [$REPO@${SHA:0:12}](https://github.com/$REPO/tree/$SHA) |"
-	echo "| Size | $(stat -c %s "$f") bytes |"
-	echo "| SHA-256 | \`$(sha256sum "$f" | cut -c1-64)\` |"
-	echo "| browser.tar.zst | \`$(sha256sum browser/browser.tar.zst | cut -c1-64)\` |"
-	echo
-	echo "Verify: \`gh attestation verify $(basename "$f") -R $GITHUB_REPOSITORY\`"
-} > ipk/SUMMARY.md   # the run's one summary is written by the Result job from both variants
+sha256sum "$f" browser/browser.tar.zst | sed 's#  .*/#  #' > extra/SHA256SUMS
+printf '| %s | `%s` | %s | `%s` |\n' "$V" "$(basename "$f")" "$(stat -c %s "$f" | sed ':a;s/\B[0-9]\{3\}\>/,&/;ta') bytes" "$(sha256sum "$f" | cut -c1-64)" > extra/ROW.md
+cat extra/ROW.md

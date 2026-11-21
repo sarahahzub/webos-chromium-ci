@@ -29,6 +29,9 @@ jobs:
         run: |
           sha=$(git -C wc rev-parse HEAD)
           echo "sha=$sha" >> $GITHUB_OUTPUT
+          title=$(sed -n 's/^APP_TITLE="\{0,1\}\([^"#]*\)"\{0,1\}.*/\1/p' wc/source/config.env | sed 's/ *$//')
+          case "${{ inputs.variants }}" in both) v="default and ARMv8" ;; default) v="default" ;; *) v="ARMv8" ;; esac
+          echo "Building **${title:-Chromium Browser} ${{ inputs.version }}** from [${{ inputs.source_repo }}@${sha:0:7}](https://github.com/${{ inputs.source_repo }}/tree/$sha) ($v)" >> $GITHUB_STEP_SUMMARY
 
   source:
     name: Chromium source (setup-source.sh)
@@ -152,8 +155,9 @@ jobs:
       version: ${{ inputs.version }}
       hours: ${{ inputs.hours }}
 
-  # The run's only summary and the artifacts people need: webos-chromium-<variant> (IPK, browser.tar.zst, reports)
-  # and one logs artifact. The hand-overs between jobs (build folder, browser, launcher) are deleted here.
+  # The end summary and the three artifacts a run keeps: webos-chromium-default, webos-chromium-armv8 (the IPKs) and
+  # logs (everything else: build logs, browser.tar.zst, SHA256SUMS, ABI and NSS reports, launcher). The other
+  # artifacts are hand-overs between jobs and are deleted here.
   result:
     name: Result
     needs: [resolve, default, armv8]
@@ -163,29 +167,40 @@ jobs:
       contents: read
       actions: write
     steps:
+      - uses: actions/download-artifact@v4
+        with: { pattern: "logs-*", path: all }
+      - uses: actions/download-artifact@v4
+        with: { pattern: "extra-*", path: all }
+      - uses: actions/download-artifact@v4
+        continue-on-error: true
+        with: { name: launcher, path: all/launcher }
       - name: One logs artifact
-        uses: actions/upload-artifact/merge@v4
-        with: { name: logs, pattern: "logs-*", separate-directories: true, delete-merged: true, retention-days: 14 }
-      - name: Variant results
-        uses: actions/download-artifact@v4
-        with: { pattern: "webos-chromium-*", path: res }
+        uses: actions/upload-artifact@v4
+        with: { name: logs, path: all/, retention-days: 30 }
       - name: Summary
         env:
-          SHA: ${{ needs.resolve.outputs.sha }}
           DEF: ${{ needs.default.result }}
           ARM: ${{ needs.armv8.result }}
         run: |
           {
-            echo "# WebOS Chromium ${{ inputs.version }}"
+            echo "## Result"
             echo
-            echo "Source: [${{ inputs.source_repo }}@${SHA:0:12}](https://github.com/${{ inputs.source_repo }}/tree/$SHA). Default: **$DEF**, ARMv8: **$ARM**."
-            echo
-            for f in res/*/SUMMARY.md; do [ -f "$f" ] && { cat "$f"; echo; }; done
-            echo "Download the IPKs from the **webos-chromium-default** and **webos-chromium-armv8** artifacts below."
+            if ls all/extra-*/ROW.md > /dev/null 2>&1; then
+              echo "| Variant | IPK | Size | SHA-256 |"
+              echo "|---|---|---|---|"
+              cat all/extra-*/ROW.md
+              echo
+              echo "Verify an IPK: \`gh attestation verify <file> -R ${{ github.repository }}\`"
+              echo
+            fi
+            for x in "default:$DEF" "ARMv8:$ARM"; do
+              case "${x#*:}" in success|skipped) ;; *) echo "**${x%%:*} failed** (${x#*:}): see the logs artifact."; echo ;; esac
+            done
+            echo "Artifacts: the IPKs in **webos-chromium-default** and **webos-chromium-armv8**, everything else in **logs**."
           } >> "$GITHUB_STEP_SUMMARY"
       - name: Delete the hand-over artifacts
         env: { GH_TOKEN: "${{ github.token }}" }
         run: |
           gh api "repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts?per_page=100" \
-            --jq '.artifacts[] | select(.name | test("^(out-|browser-|launcher$)")) | "\(.id) \(.name)"' |
+            --jq '.artifacts[] | select(.name | test("^(webos-chromium-.*|logs)$") | not) | "\(.id) \(.name)"' |
           while read -r id name; do gh api -X DELETE "repos/${{ github.repository }}/actions/artifacts/$id" && echo "deleted $name"; done
