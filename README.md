@@ -20,7 +20,9 @@ variants). The branch is resolved to one commit at the start, and every job buil
 | IPK and provenance | the IPK, plus a signed build provenance attestation | `package/mkipk.py` |
 | Result | the end summary (both IPKs, sha256, how to verify); one logs artifact; deletes the hand-overs between jobs | |
 
-Source, sysroot and NSS are cached, so later runs of the same Chromium commit skip those jobs. The container
+Source, sysroot and NSS are cached, so later runs of the same Chromium commit skip those jobs. The finished build
+folder of each variant is cached too: the next run starts from it and recompiles only what the changed patches touch.
+`seed_run` (optional) starts from another run's last build-folder hand-over when no cached build folder fits. The container
 (`ci/Dockerfile`) has the same contents as the Modal image in `source/modalapp/build.py`.
 
 ## Variants

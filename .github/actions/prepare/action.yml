@@ -10,6 +10,7 @@ outputs:
   src_key: { description: "cache key of the source snapshot", value: "${{ steps.keys.outputs.src_key }}" }
   tools_key: { description: "cache key of sysroot + builtins", value: "${{ steps.keys.outputs.tools_key }}" }
   nss_key: { description: "cache key of NSS/NSPR", value: "${{ steps.keys.outputs.nss_key }}" }
+  out_key: { description: "cache key prefix of the variant's finished build folder", value: "${{ steps.outkey.outputs.out_key }}" }
 runs:
   using: composite
   steps:
@@ -53,3 +54,10 @@ runs:
     - name: Source folder for variant ${{ inputs.variant }}
       shell: bash
       run: bash ci/prep-cn.sh ${{ inputs.variant }}
+    - name: Build folder cache key
+      id: outkey
+      shell: bash
+      run: |
+        a=$(sha256sum /home/runner/cnci/cn/args.gn | cut -c1-12)
+        t=$(echo '${{ steps.keys.outputs.tools_key }}' | sha256sum | cut -c1-12)   # chromium commit + sysroot/builtins
+        echo "out_key=out-${{ inputs.variant }}-${t}-${a}" >> $GITHUB_OUTPUT
