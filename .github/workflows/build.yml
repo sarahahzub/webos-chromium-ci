@@ -1,4 +1,5 @@
 name: Build WebOS Chromium
+run-name: WebOS Chromium v${{ inputs.version }}
 # Builds the browser from sarahahzub/WebOS-Chromium source/ on GitHub-hosted runners, then the IPK with a build
 # provenance attestation. Steps follow source/BUILDING.md; the container scripts run unchanged in ci/Dockerfile.
 on:
