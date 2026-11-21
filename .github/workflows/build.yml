@@ -158,9 +158,9 @@ jobs:
       hours: ${{ inputs.hours }}
       seed_run: ${{ inputs.seed_run }}
 
-  # The end summary and the three artifacts a run keeps: webos-chromium-default, webos-chromium-armv8 (the IPKs) and
-  # logs (everything else: build logs, SHA256SUMS, ABI and NSS reports, launcher). The other
-  # artifacts are hand-overs between jobs and are deleted here.
+  # The end summary and the three artifacts a run keeps: webos-chromium-default-<version>,
+  # webos-chromium-armv8-<version> (the IPKs) and logs-<version> (everything else: build logs, SHA256SUMS, ABI and NSS
+  # reports, launcher). The other artifacts are hand-overs between jobs and are deleted here.
   result:
     name: Result
     needs: [resolve, default, armv8]
@@ -179,19 +179,24 @@ jobs:
         with: { name: launcher, path: all/launcher }
       - name: One logs artifact
         uses: actions/upload-artifact@v4
-        with: { name: logs, path: all/, retention-days: 30 }
+        with: { name: "logs-${{ inputs.version }}", path: all/, retention-days: 30 }
       - name: Summary
         env:
           DEF: ${{ needs.default.result }}
           ARM: ${{ needs.armv8.result }}
+          VER: ${{ inputs.version }}
         run: |
           {
             echo "## Result"
             echo
             if ls all/extra-*/ROW.md > /dev/null 2>&1; then
-              echo "| Variant | IPK | Size | SHA-256 |"
-              echo "|---|---|---|---|"
-              cat all/extra-*/ROW.md
+              echo "| Variant | IPK | Size | SHA-256 | Provenance |"
+              echo "|---|---|---|---|---|"
+              for d in all/extra-*/; do
+                [ -f "$d/ROW.md" ] || continue
+                u=$(cat "$d/ATTESTATION.txt" 2>/dev/null)
+                echo "$(tr -d '\n' < "$d/ROW.md") ${u:+[attestation]($u)} |"
+              done
               echo
               echo "Verify an IPK: \`gh attestation verify <file> -R ${{ github.repository }}\`"
               echo
@@ -199,11 +204,14 @@ jobs:
             for x in "default:$DEF" "ARMv8:$ARM"; do
               case "${x#*:}" in success|skipped) ;; *) echo "**${x%%:*} failed** (${x#*:}): see the logs artifact."; echo ;; esac
             done
-            echo "Artifacts: the IPKs in **webos-chromium-default** and **webos-chromium-armv8**, everything else in **logs**."
+            echo "Artifacts: the IPKs in **webos-chromium-default-$VER** and **webos-chromium-armv8-$VER**, everything else in **logs-$VER**."
           } >> "$GITHUB_STEP_SUMMARY"
       - name: Delete the hand-over artifacts
-        env: { GH_TOKEN: "${{ github.token }}" }
+        env: { GH_TOKEN: "${{ github.token }}", VER: "${{ inputs.version }}" }
         run: |
           gh api "repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts?per_page=100" \
-            --jq '.artifacts[] | select(.name | test("^(webos-chromium-.*|logs)$") | not) | "\(.id) \(.name)"' |
-          while read -r id name; do gh api -X DELETE "repos/${{ github.repository }}/actions/artifacts/$id" && echo "deleted $name"; done
+            --jq '.artifacts[] | "\(.id) \(.name)"' |
+          while read -r id name; do
+            case "$name" in "webos-chromium-default-$VER"|"webos-chromium-armv8-$VER"|"logs-$VER") continue ;; esac
+            gh api -X DELETE "repos/${{ github.repository }}/actions/artifacts/$id" && echo "deleted $name"
+          done

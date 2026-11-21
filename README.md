@@ -38,12 +38,13 @@ Both variants also set `cc_wrapper = ""`: no ccache, because the build folder it
 ## What a finished run keeps
 
 Three artifacts:
-- **webos-chromium-default**: the default IPK.
-- **webos-chromium-armv8**: the ARMv8 IPK.
-- **logs**: everything else: the build logs of every job, `SHA256SUMS` (the IPK and the browser it holds), the ABI
+- **webos-chromium-default-<version>**: the default IPK.
+- **webos-chromium-armv8-<version>**: the ARMv8 IPK.
+- **logs-<version>**: everything else: the build logs of every job, `SHA256SUMS` (the IPK and the browser it holds), the ABI
   and NSS reports, and the launcher. The browser itself is only inside the IPK.
 
-The run's page has two summaries: what is being built (at the start) and the result (both IPKs with their sha256).
+The run's page has two summaries: what is being built (at the start) and the result (both IPKs with their sha256 and a link to each one's build
+provenance attestation).
 
 ## Checking an IPK
 

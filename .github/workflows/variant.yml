@@ -364,13 +364,18 @@ jobs:
       - name: Make the IPK (package/mkipk.py)
         run: bash ci/package.sh "${{ inputs.variant }}" "${{ inputs.version }}" "${{ inputs.source_repo }}" "${{ inputs.sha }}"
       - name: Build provenance attestation
+        id: att
         uses: actions/attest-build-provenance@v2
         with:
+          show-summary: false   # the link goes into the Result summary instead
           subject-path: |
             ipk/*.ipk
             browser/browser.tar.zst
             launcher/cnrun
+      - name: Attestation link for the Result summary
+        env: { URL: "${{ steps.att.outputs.attestation-url }}" }
+        run: echo "$URL" > extra/ATTESTATION.txt
       - uses: actions/upload-artifact@v4
-        with: { name: "webos-chromium-${{ inputs.variant }}", path: ipk/, retention-days: 30, compression-level: 0 }
+        with: { name: "webos-chromium-${{ inputs.variant }}-${{ inputs.version }}", path: ipk/, retention-days: 30, compression-level: 0 }
       - uses: actions/upload-artifact@v4
         with: { name: "extra-${{ inputs.variant }}", path: extra/, retention-days: 1, compression-level: 0 }
