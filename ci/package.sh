@@ -16,7 +16,7 @@ python3 "$S/package/mkipk.py" --browser "$PWD/browser/browser.tar.zst" --version
 # ipk/ holds only the IPK (artifact webos-chromium-<variant>); everything else goes to extra/, which the Result job
 # puts into the logs artifact
 rm -rf extra; mkdir -p extra
-cp browser/browser.tar.zst nss/nss-report.txt extra/; cp browser/abi-report.txt extra/ 2>/dev/null || true
+cp nss/nss-report.txt extra/; cp browser/abi-report.txt extra/ 2>/dev/null || true   # browser.tar.zst: inside the IPK, not kept separately
 f=$(ls ipk/*.ipk)
 sha256sum "$f" browser/browser.tar.zst | sed 's#  .*/#  #' > extra/SHA256SUMS
 printf '| %s | `%s` | %s | `%s` |\n' "$V" "$(basename "$f")" "$(stat -c %s "$f" | sed ':a;s/\B[0-9]\{3\}\>/,&/;ta') bytes" "$(sha256sum "$f" | cut -c1-64)" > extra/ROW.md

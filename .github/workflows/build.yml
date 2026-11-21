@@ -156,7 +156,7 @@ jobs:
       hours: ${{ inputs.hours }}
 
   # The end summary and the three artifacts a run keeps: webos-chromium-default, webos-chromium-armv8 (the IPKs) and
-  # logs (everything else: build logs, browser.tar.zst, SHA256SUMS, ABI and NSS reports, launcher). The other
+  # logs (everything else: build logs, SHA256SUMS, ABI and NSS reports, launcher). The other
   # artifacts are hand-overs between jobs and are deleted here.
   result:
     name: Result
