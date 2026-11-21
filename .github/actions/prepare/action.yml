@@ -40,6 +40,9 @@ runs:
     - name: Build container image
       if: inputs.docker == 'true'
       uses: docker/build-push-action@v6
+      env:   # no "Docker Build summary" and no .dockerbuild record artifact in every job
+        DOCKER_BUILD_SUMMARY: "false"
+        DOCKER_BUILD_RECORD_UPLOAD: "false"
       with:
         context: ci
         file: ci/Dockerfile

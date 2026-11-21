@@ -18,6 +18,7 @@ variants). The branch is resolved to one commit at the start, and every job buil
 | Launcher | `bin/run` | `package/launcher/build.sh` |
 | Build part 1, 2, ... | the browser, about 5 hours per job (a hosted job stops at 6 hours); each part continues the previous one's build folder | `container/build.sh` |
 | IPK and provenance | the IPK, plus a signed build provenance attestation | `package/mkipk.py` |
+| Result | the run's summary (both IPKs, sha256, how to verify); merges the logs; deletes the hand-overs between jobs | |
 
 Source, sysroot and NSS are cached, so later runs of the same Chromium commit skip those jobs. The container
 (`ci/Dockerfile`) has the same contents as the Modal image in `source/modalapp/build.py`.
@@ -31,6 +32,12 @@ Source, sysroot and NSS are cached, so later runs of the same Chromium commit sk
 
 Both variants also set `cc_wrapper = ""`: no ccache, because the build folder itself carries the state between jobs.
 `ci/prep-cn.sh` makes these changes in a copy and prints the diff in the log. Nothing else in `source/` changes.
+
+## What a finished run keeps
+
+- **webos-chromium-default** and **webos-chromium-armv8**: the IPK, the `browser.tar.zst` it was made from,
+  `SHA256SUMS`, the ABI and NSS reports.
+- **logs**: the build logs of every job, one folder each.
 
 ## Checking an IPK
 

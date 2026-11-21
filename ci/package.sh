@@ -13,8 +13,9 @@ EXTRA=()
 [ "$V" = armv8 ] && EXTRA=(--app-id io.github.sarahahzub.chromium.armv8 --title "Chromium Browser ARMv8")
 python3 "$S/package/mkipk.py" --browser "$PWD/browser/browser.tar.zst" --version "$VER" --launcher "$PWD/launcher/cnrun" \
 	--requires "glibc=2.24,webos=webOS 4.4" --lib-dir "$PWD/nss/lib" --out "$PWD/ipk" "${EXTRA[@]}"
-cp nss/nss-report.txt browser/abi-report.txt ipk/ 2>/dev/null || true
-(cd ipk && sha256sum *.ipk > SHA256SUMS)
+# one artifact per variant: the IPK, the browser it was made from, and the reports
+cp browser/browser.tar.zst nss/nss-report.txt browser/abi-report.txt ipk/ 2>/dev/null || true
+(cd ipk && sha256sum *.ipk browser.tar.zst > SHA256SUMS)
 f=$(ls ipk/*.ipk)
 {
 	echo "## $V: $(basename "$f")"
@@ -27,4 +28,4 @@ f=$(ls ipk/*.ipk)
 	echo "| browser.tar.zst | \`$(sha256sum browser/browser.tar.zst | cut -c1-64)\` |"
 	echo
 	echo "Verify: \`gh attestation verify $(basename "$f") -R $GITHUB_REPOSITORY\`"
-} >> "$GITHUB_STEP_SUMMARY"
+} > ipk/SUMMARY.md   # the run's one summary is written by the Result job from both variants

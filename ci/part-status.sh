@@ -9,7 +9,6 @@ P=$1 MAX=$2
 s=$(python3 -c "import json,sys; print(json.load(open(sys.argv[1])).get('status',''))" "$B/vol/logs/$BUILD_ID.json" 2>/dev/null || echo missing)
 prog=$(python3 -c "import json,sys; print(json.load(open(sys.argv[1])).get('last_progress',''))" "$B/vol/logs/$BUILD_ID.json" 2>/dev/null || true)
 echo "build.sh status: $s, last progress $prog"
-{ echo "### Part $P: $s"; echo; echo "Last ninja progress: \`$prog\`"; } >> "$GITHUB_STEP_SUMMARY"
 case "$s" in
 done)
 	[ -f "$B/vol/artifacts/$BUILD_ID/browser.tar.zst" ] || { echo "no browser.tar.zst"; exit 1; }

@@ -133,7 +133,7 @@ package = f"""  package:
             browser/browser.tar.zst
             launcher/cnrun
       - uses: actions/upload-artifact@v4
-        with: {{ name: "ipk-${{{{ inputs.variant }}}}", path: ipk/, retention-days: 30, compression-level: 0 }}
+        with: {{ name: "webos-chromium-${{{{ inputs.variant }}}}", path: ipk/, retention-days: 30, compression-level: 0 }}
 """
 
 out = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".github", "workflows", "variant.yml")

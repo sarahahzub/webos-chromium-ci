@@ -29,7 +29,6 @@ jobs:
         run: |
           sha=$(git -C wc rev-parse HEAD)
           echo "sha=$sha" >> $GITHUB_OUTPUT
-          echo "Building [${{ inputs.source_repo }}@$sha](https://github.com/${{ inputs.source_repo }}/tree/$sha), version ${{ inputs.version }}, variants ${{ inputs.variants }}" >> $GITHUB_STEP_SUMMARY
 
   source:
     name: Chromium source (setup-source.sh)
@@ -152,3 +151,41 @@ jobs:
       variant: armv8
       version: ${{ inputs.version }}
       hours: ${{ inputs.hours }}
+
+  # The run's only summary and the artifacts people need: webos-chromium-<variant> (IPK, browser.tar.zst, reports)
+  # and one logs artifact. The hand-overs between jobs (build folder, browser, launcher) are deleted here.
+  result:
+    name: Result
+    needs: [resolve, default, armv8]
+    if: always() && needs.resolve.result == 'success'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      actions: write
+    steps:
+      - name: One logs artifact
+        uses: actions/upload-artifact/merge@v4
+        with: { name: logs, pattern: "logs-*", separate-directories: true, delete-merged: true, retention-days: 14 }
+      - name: Variant results
+        uses: actions/download-artifact@v4
+        with: { pattern: "webos-chromium-*", path: res }
+      - name: Summary
+        env:
+          SHA: ${{ needs.resolve.outputs.sha }}
+          DEF: ${{ needs.default.result }}
+          ARM: ${{ needs.armv8.result }}
+        run: |
+          {
+            echo "# WebOS Chromium ${{ inputs.version }}"
+            echo
+            echo "Source: [${{ inputs.source_repo }}@${SHA:0:12}](https://github.com/${{ inputs.source_repo }}/tree/$SHA). Default: **$DEF**, ARMv8: **$ARM**."
+            echo
+            for f in res/*/SUMMARY.md; do [ -f "$f" ] && { cat "$f"; echo; }; done
+            echo "Download the IPKs from the **webos-chromium-default** and **webos-chromium-armv8** artifacts below."
+          } >> "$GITHUB_STEP_SUMMARY"
+      - name: Delete the hand-over artifacts
+        env: { GH_TOKEN: "${{ github.token }}" }
+        run: |
+          gh api "repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts?per_page=100" \
+            --jq '.artifacts[] | select(.name | test("^(out-|browser-|launcher$)")) | "\(.id) \(.name)"' |
+          while read -r id name; do gh api -X DELETE "repos/${{ github.repository }}/actions/artifacts/$id" && echo "deleted $name"; done
